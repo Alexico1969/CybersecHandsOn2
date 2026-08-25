@@ -1,0 +1,35 @@
+# Block direct access to files that should never be served as-is.
+<FilesMatch "\.(sql|md)$">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</FilesMatch>
+
+<Files "config.sample.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</Files>
+
+# app_secrets.php holds real credentials. It's only ever loaded server-side
+# via require_once — nothing legitimate ever requests its URL directly — so
+# block direct HTTP access outright. This is deny-at-the-door: Apache refuses
+# the request before deciding whether to execute or serve the file, so it
+# holds even if PHP execution for this file ever misbehaves again.
+<Files "app_secrets.php">
+    <IfModule mod_authz_core.c>
+        Require all denied
+    </IfModule>
+    <IfModule !mod_authz_core.c>
+        Order deny,allow
+        Deny from all
+    </IfModule>
+</Files>
