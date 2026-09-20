@@ -15,6 +15,5 @@ include __DIR__ . '/includes/header.php';
     <img src="<?= h(SITE_URL) ?>/assets/google.svg" alt="" width="18" height="18">
     Sign in with Google
   </a>
-  <p class="muted">Sign-in is restricted to accounts your instructor has enrolled.</p>
 </div>
 <?php include __DIR__ . '/includes/footer.php'; ?>
