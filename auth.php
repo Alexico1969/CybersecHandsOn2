@@ -117,9 +117,22 @@ function admin_emails(): array {
     return array_filter(array_map('trim', explode(',', strtolower(ADMIN_EMAILS))));
 }
 
+/**
+ * Only called on a fresh Google sign-in, so it also records the sign-in
+ * (last_login_at / login_count). The optional userinfo fields are stored as
+ * NULL when Google doesn't send them -- e.g. `hd` only exists for
+ * Workspace (school/work) accounts, and `locale` is often omitted.
+ */
 function upsert_user_from_google(array $profile): array {
     $email = strtolower($profile['email']);
     $role = in_array($email, admin_emails(), true) ? 'admin' : 'student';
+    $extra = [
+        isset($profile['email_verified']) ? (int) (bool) $profile['email_verified'] : null,
+        $profile['given_name'] ?? null,
+        $profile['family_name'] ?? null,
+        $profile['locale'] ?? null,
+        $profile['hd'] ?? null,
+    ];
 
     $stmt = db()->prepare('SELECT * FROM users WHERE google_id = ?');
     $stmt->execute([$profile['sub']]);
@@ -127,15 +140,24 @@ function upsert_user_from_google(array $profile): array {
 
     if ($existing) {
         $newRole = $existing['role'] === 'admin' ? 'admin' : $role;
-        $update = db()->prepare('UPDATE users SET name = ?, avatar_url = ?, email = ?, role = ? WHERE id = ?');
-        $update->execute([$profile['name'] ?? $existing['name'], $profile['picture'] ?? null, $email, $newRole, $existing['id']]);
+        $update = db()->prepare(
+            'UPDATE users SET name = ?, avatar_url = ?, email = ?, role = ?,
+                email_verified = ?, given_name = ?, family_name = ?, locale = ?, hosted_domain = ?,
+                last_login_at = NOW(), login_count = login_count + 1
+             WHERE id = ?'
+        );
+        $update->execute([$profile['name'] ?? $existing['name'], $profile['picture'] ?? null, $email, $newRole, ...$extra, $existing['id']]);
         $existing['name'] = $profile['name'] ?? $existing['name'];
         $existing['role'] = $newRole;
         return $existing;
     }
 
-    $insert = db()->prepare('INSERT INTO users (google_id, email, name, avatar_url, role) VALUES (?, ?, ?, ?, ?)');
-    $insert->execute([$profile['sub'], $email, $profile['name'] ?? $email, $profile['picture'] ?? null, $role]);
+    $insert = db()->prepare(
+        'INSERT INTO users (google_id, email, name, avatar_url, role,
+            email_verified, given_name, family_name, locale, hosted_domain, last_login_at, login_count)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), 1)'
+    );
+    $insert->execute([$profile['sub'], $email, $profile['name'] ?? $email, $profile['picture'] ?? null, $role, ...$extra]);
 
     $id = (int) db()->lastInsertId();
     $stmt = db()->prepare('SELECT * FROM users WHERE id = ?');

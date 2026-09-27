@@ -26,7 +26,8 @@ if ($user) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title><?= h(isset($pageTitle) ? $pageTitle . ' — HackLab' : 'HackLab') ?></title>
-<link rel="stylesheet" href="<?= h(SITE_URL) ?>/assets/style.css">
+<?php // ?v= changes whenever style.css is re-uploaded, so browsers never keep a stale copy. ?>
+<link rel="stylesheet" href="<?= h(SITE_URL) ?>/assets/style.css?v=<?= (int) @filemtime(__DIR__ . '/../assets/style.css') ?>">
 </head>
 <body>
 <?php if ($user): ?>

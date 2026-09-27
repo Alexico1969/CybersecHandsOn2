@@ -4,24 +4,11 @@ require_admin();
 
 $challenges = db()->query('SELECT * FROM challenges ORDER BY sort_order ASC, id ASC')->fetchAll();
 
-$students = db()->query(
-    "SELECT u.*, COUNT(CASE WHEN p.status = 'finished' THEN 1 END) AS solved_count
-     FROM users u
-     LEFT JOIN progress p ON p.user_id = u.id
-     WHERE u.role = 'student'
-     GROUP BY u.id
-     ORDER BY u.points DESC"
-)->fetchAll();
-
 $pageTitle = 'Admin';
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="admin-subnav">
-  <a href="<?= h(SITE_URL) ?>/admin/index.php">Challenges</a>
-  <a href="<?= h(SITE_URL) ?>/admin/test_challenges.php">Test-challenges</a>
-  <a href="<?= h(SITE_URL) ?>/admin/test_scores.php">Test scores</a>
-</div>
+<?php include __DIR__ . '/../includes/admin_subnav.php'; ?>
 
 <div class="admin-section-header">
   <h1>Challenges</h1>
@@ -50,20 +37,6 @@ include __DIR__ . '/../includes/header.php';
   </div>
 <?php endforeach; ?>
 <?php if (!$challenges): ?><p class="muted">No challenges yet.</p><?php endif; ?>
-</div>
-
-<h2>Students</h2>
-<div class="list">
-<?php foreach ($students as $s): ?>
-  <div class="list-row">
-    <div>
-      <div class="list-title"><?= h($s['name']) ?></div>
-      <div class="muted small"><?= h($s['email']) ?></div>
-    </div>
-    <div class="muted"><?= (int) $s['solved_count'] ?> solved · <?= (int) $s['points'] ?> pts</div>
-  </div>
-<?php endforeach; ?>
-<?php if (!$students): ?><p class="muted">No students yet.</p><?php endif; ?>
 </div>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

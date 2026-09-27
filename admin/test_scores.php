@@ -17,11 +17,7 @@ $pageTitle = 'Test scores';
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<div class="admin-subnav">
-  <a href="<?= h(SITE_URL) ?>/admin/index.php">Challenges</a>
-  <a href="<?= h(SITE_URL) ?>/admin/test_challenges.php">Test-challenges</a>
-  <a href="<?= h(SITE_URL) ?>/admin/test_scores.php">Test scores</a>
-</div>
+<?php include __DIR__ . '/../includes/admin_subnav.php'; ?>
 
 <h1>Test scores</h1>
 <p class="muted">

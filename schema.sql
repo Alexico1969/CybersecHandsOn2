@@ -1,6 +1,6 @@
 -- Run this once against your MySQL database (e.g. via phpMyAdmin in the
 -- WebReus panel) before uploading the site. This is the complete schema for a
--- fresh install -- it already includes everything from migration_2/3/4, so
+-- fresh install -- it already includes everything from migration_2/3/4/5, so
 -- do NOT run those migrations afterwards. (They are only for upgrading a
 -- database created from an older version of this file.)
 
@@ -8,11 +8,20 @@ CREATE TABLE IF NOT EXISTS users (
   id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   google_id VARCHAR(64) NOT NULL UNIQUE,
   email VARCHAR(255) NOT NULL UNIQUE,
+  email_verified TINYINT(1) NULL,
   name VARCHAR(255) NOT NULL,
+  given_name VARCHAR(255) NULL,
+  family_name VARCHAR(255) NULL,
   avatar_url VARCHAR(500) NULL,
+  -- Google profile language (not always sent) and Workspace domain (only
+  -- sent for school/work accounts, e.g. "school.nl").
+  locale VARCHAR(35) NULL,
+  hosted_domain VARCHAR(255) NULL,
   role ENUM('student','admin') NOT NULL DEFAULT 'student',
   points INT NOT NULL DEFAULT 0,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_login_at DATETIME NULL,
+  login_count INT NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS challenges (

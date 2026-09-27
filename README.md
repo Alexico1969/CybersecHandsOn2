@@ -21,7 +21,9 @@ solution has leaked around the classroom. See [Test-challenges](#test-challenges
 
 ## What tracks what
 
-- **users** — one row per student/admin, created on first Google sign-in.
+- **users** — one row per student/admin, created on first Google sign-in,
+  with the Google profile details (name, email, picture, verified flag,
+  Workspace domain, language) and sign-in count/last sign-in.
 - **challenges** — title, description, difficulty, points, which built-in
   mechanic renders it (`challenge_type`), optional hint, admin-only
   `solution`, optional `config` (JSON overriding the mechanic's secret),
@@ -148,6 +150,11 @@ migration has already been applied.
    page fails without it (see step 5 above).
 4. [`seed_test_challenges.sql`](seed_test_challenges.sql) — optional, the
    10 example test-challenge variants.
+5. [`migration_5_user_profile_fields.sql`](migration_5_user_profile_fields.sql)
+   — adds the extra Google profile fields and sign-in tracking shown on the
+   admin student page. Required: signing in fails without it once the
+   matching `auth.php` is uploaded. Existing students get these fields
+   filled in the next time they sign in.
 
 Then upload the updated files. Don't re-run the full `schema.sql` on an
 existing database — it'll fail on duplicate slugs.
@@ -210,6 +217,10 @@ yet, so their variants differ only in wording, not in the technique needed.
 - **Test-challenges** — create/edit/delete variants, assign one to a
   student, and see or remove current assignments.
 - **Test scores** — results for assigned test-challenges.
+- **Students** — every student with their solved count and regular points.
+  Click a name for that student's page: Google profile details, sign-in
+  history, points and rank, status of every challenge and test-challenge,
+  and their 25 most recent flag submissions.
 
 **Student side:** an **Assigned Tests** link in the nav shows the student's
 assigned variants, with a red **!** badge while any are unfinished. Test
