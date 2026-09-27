@@ -4,7 +4,7 @@ require_once __DIR__ . '/challenge_types.php';
 $user = require_login();
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    redirect('/dashboard.php');
+    redirect('/assigned_tests.php');
 }
 require_csrf();
 
@@ -12,17 +12,17 @@ $slug = $_POST['slug'] ?? '';
 $username = (string) ($_POST['username'] ?? '');
 $password = (string) ($_POST['password'] ?? '');
 
-$stmt = db()->prepare('SELECT * FROM challenges WHERE slug = ? AND published = 1 AND challenge_type = ?');
+$stmt = db()->prepare('SELECT * FROM test_challenges WHERE slug = ? AND published = 1 AND challenge_type = ?');
 $stmt->execute([$slug, 'sql_injection']);
 $challenge = $stmt->fetch();
 if (!$challenge) {
-    redirect('/dashboard.php');
+    redirect('/assigned_tests.php');
 }
 
-$flagCheck = db()->prepare('SELECT id FROM user_flags WHERE user_id = ? AND challenge_id = ?');
+$flagCheck = db()->prepare('SELECT id FROM test_user_flags WHERE user_id = ? AND test_challenge_id = ?');
 $flagCheck->execute([$user['id'], $challenge['id']]);
 if (!$flagCheck->fetch()) {
-    redirect('/challenge.php?slug=' . urlencode($slug));
+    redirect('/test_challenge.php?slug=' . urlencode($slug));
 }
 
 try {
@@ -40,12 +40,12 @@ try {
     $row = $sandbox->query($query)->fetch();
 
     if ($row) {
-        $_SESSION[challenge_session_key('sqli_unlocked', $challenge['id'])] = true;
+        $_SESSION[challenge_session_key('sqli_unlocked', $challenge['id'], 'test')] = true;
     } else {
-        $_SESSION[challenge_session_key('sqli_error', $challenge['id'])] = 'Invalid credentials.';
+        $_SESSION[challenge_session_key('sqli_error', $challenge['id'], 'test')] = 'Invalid credentials.';
     }
 } catch (Throwable $e) {
-    $_SESSION[challenge_session_key('sqli_error', $challenge['id'])] = 'Query error: ' . $e->getMessage();
+    $_SESSION[challenge_session_key('sqli_error', $challenge['id'], 'test')] = 'Query error: ' . $e->getMessage();
 }
 
-redirect('/challenge.php?slug=' . urlencode($slug));
+redirect('/test_challenge.php?slug=' . urlencode($slug));

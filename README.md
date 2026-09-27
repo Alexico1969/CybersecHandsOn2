@@ -8,23 +8,32 @@ points. Each student gets their own unique flag per challenge (e.g.
 so copying a classmate's answer doesn't work even though the underlying
 vulnerability is identical.
 
-The first 3 challenges are entirely self-contained (no external terminal
-needed): HTML source inspection, cookie tampering, and Base64 decoding. Later
-challenges that genuinely need a real Linux/Python environment can set an
-optional external "terminal URL" from the admin panel — the site just links
-out to it.
+The 10 starter challenges are entirely self-contained (no external terminal
+needed): HTML source inspection, cookie tampering, Base64/hex decoding,
+Caesar/Vigenère ciphers, hidden URL parameters, custom HTTP headers, SQL
+injection, and a file-upload filter bypass. Challenges that genuinely need a
+real Linux/Python environment can set an optional external "terminal URL"
+from the admin panel — the site just links out to it.
+
+On top of that, admins can assign **test-challenges** — variants of the real
+challenges with different secrets — to individual students, e.g. after a
+solution has leaked around the classroom. See [Test-challenges](#test-challenges).
 
 ## What tracks what
 
 - **users** — one row per student/admin, created on first Google sign-in.
 - **challenges** — title, description, difficulty, points, which built-in
-  mechanic renders it (`challenge_type`), optional hint, optional external
-  terminal URL.
+  mechanic renders it (`challenge_type`), optional hint, admin-only
+  `solution`, optional `config` (JSON overriding the mechanic's secret),
+  optional external terminal URL.
 - **user_flags** — the unique flag generated for each (student, challenge)
   pair the first time they hit "Start challenge."
 - **progress** — started/finished status, timestamps, attempts count, points
   actually awarded (hint cost subtracted if used).
 - **flag_attempts** — full log of every submission, right or wrong.
+- **test_challenges**, **test_challenge_assignments**, **test_user_flags**,
+  **test_progress**, **test_flag_attempts** — the same idea for
+  test-challenges, kept completely separate from the tables above.
 
 ## One-time setup
 
@@ -35,8 +44,14 @@ a database user with access to it. Note the database name, username,
 password, and host (usually `localhost`).
 
 Open **phpMyAdmin** (or whatever DB tool WebReus provides) for that database
-and run [`schema.sql`](schema.sql) — this creates the tables and seeds the 3
-starter challenges.
+and run [`schema.sql`](schema.sql). It creates every table (including the
+test-challenge tables) and seeds the 10 starter challenges with their answer
+keys. Optionally, also run [`seed_test_challenges.sql`](seed_test_challenges.sql)
+to load 10 ready-made test-challenge variants, one per starter challenge.
+
+Don't run the `migration_*.sql` files on a fresh install — `schema.sql`
+already includes them. They're only for upgrading an older database (see
+[Upgrading an existing install](#upgrading-an-existing-install)).
 
 ### 2. Google OAuth client
 
@@ -45,12 +60,13 @@ starter challenges.
 2. **Branding**: app name, support email.
 3. **Audience**: User type **External**, then publish to production (basic
    sign-in scopes don't need Google's verification review).
-4. **Clients → Create client → Web application**. Authorized redirect URI:
+4. **Clients → Create client → Web application**. Authorized redirect URI is
+   `SITE_URL` + `/oauth_callback.php` — for the `/ctf` subfolder used below:
    ```
-   https://alexicoo.nl/oauth_callback.php
+   https://alexicoo.nl/ctf/oauth_callback.php
    ```
-   (adjust the path if you upload into a subfolder instead of the domain
-   root — see `SITE_URL` below.)
+   It must match exactly, or Google will reject the sign-in with a
+   `redirect_uri_mismatch` error.
 5. Copy the Client ID and Client Secret.
 
 ### 3. HTTPS
@@ -90,7 +106,7 @@ live server:
 1. **PHP actually executes** where you think it does: upload a throwaway
    file containing only `<?php echo 'PHP is working: ' . PHP_VERSION;` into
    `web/ctf/`, visit its URL, and confirm it prints the version rather than
-   showing the raw code. Delete it once confirmed.
+   showing the raw code. **Delete it from the server once confirmed.**
 2. **`.htaccess` is actually being honored**: after uploading `app_secrets.php`
    and `.htaccess`, visit `app_secrets.php`'s URL directly — it must return
    "403 Forbidden", not a blank page and not the raw source. If it doesn't
@@ -102,12 +118,39 @@ live server:
 
 Via FileZilla, upload everything in this folder — including `app_secrets.php`
 and `.htaccess` — into `web/ctf/` (or wherever `SITE_URL` points). You don't
-need `config.sample.php`,
-  `schema.sql`, or this `README.md` on the server — `.htaccess` blocks
-  direct access to those anyway, but there's no reason to ship them.
+need `config.sample.php`, the `.sql` files, or this `README.md` on the
+server — `.htaccess` blocks direct access to those anyway, but there's no
+reason to ship them.
+
+Make sure the database step is done **before** the new files go live: the
+nav bar on every page checks for assigned test-challenges, so if the
+`test_*` tables don't exist yet, every page errors out.
 
 Visit `https://alexicoo.nl/ctf/`, sign in with the Google account listed in
 `ADMIN_EMAILS`, and you'll see **Admin** in the nav.
+
+## Upgrading an existing install
+
+If your database was created from an older `schema.sql`, run whichever of
+these you haven't run yet, **in order**, in phpMyAdmin. Each `ALTER TABLE`
+only succeeds once; if one errors because the column already exists, that
+migration has already been applied.
+
+1. [`migration_2_more_challenge_types.sql`](migration_2_more_challenge_types.sql)
+   — extends `challenge_type` to all 10 mechanics and adds the 7 extra
+   starter challenges.
+2. [`migration_3_add_solution_field.sql`](migration_3_add_solution_field.sql)
+   — adds the admin-only `solution` column, backfills answer keys for the
+   10 starter challenges, and corrects the `avatar-upload` hint.
+   Required: saving a challenge in the admin panel fails without it.
+3. [`migration_4_test_challenges.sql`](migration_4_test_challenges.sql)
+   — adds the `config` column and the five `test_*` tables. Required: every
+   page fails without it (see step 5 above).
+4. [`seed_test_challenges.sql`](seed_test_challenges.sql) — optional, the
+   10 example test-challenge variants.
+
+Then upload the updated files. Don't re-run the full `schema.sql` on an
+existing database — it'll fail on duplicate slugs.
 
 ## Adding challenges later
 
@@ -127,29 +170,64 @@ student's unique flag gets surfaced:
 - `file_upload` — a simulated upload filter that only inspects the
   filename, never saves or executes the uploaded file's actual content
 
+The **Solution** field is an admin-only answer key. It's never shown to
+students.
+
 To add a genuinely new *mechanic* beyond these (a downloadable-file forensics
 challenge, a different crypto scheme, ...), a new `case` needs to be added
 to `render_challenge_type()` in `challenge_types.php` — that's a code
 change, not something the admin form alone can do, since each mechanic is
-real PHP logic. Ask for a new one to be added any time you want to expand
-further.
-
-If you're adding this to an already-running install, run
-[`migration_2_more_challenge_types.sql`](migration_2_more_challenge_types.sql)
-in phpMyAdmin once (it extends the `challenge_type` column and adds the 7
-example challenges) — don't re-run the full `schema.sql`, it'll fail on the
-duplicate slugs from the original 3. Also make sure `sqli_attempt.php` and
-`upload_check.php` are uploaded alongside everything else — they're the
-POST handlers the SQL-injection and file-upload challenges submit to.
+real PHP logic.
 
 For challenges that need actual command-line/Python access, set the
 **Terminal URL** field to point at whatever external environment you're
 using for those — the challenge page will show an "Open terminal ↗" button
 alongside its normal flag mechanic.
 
+## Test-challenges
+
+Test-challenges are variants of the real challenges, meant for when a
+technique has leaked around the class and you want to check that a specific
+student can really do it. They use the same mechanics, but a JSON `config`
+can change the secret. Examples: a different cookie name or value, Caesar
+shift, Vigenère keyword, URL parameter, header name or value, or allowed
+upload extensions. With no config, a mechanic uses the same defaults as the
+real challenge.
+
+| `challenge_type`  | `config` keys                                   |
+|-------------------|-------------------------------------------------|
+| `cookie`          | `cookie_name`, `locked_value`, `unlock_value`   |
+| `caesar`          | `shift`                                         |
+| `vigenere`        | `keyword`                                       |
+| `hidden_param`    | `param_name`, `param_value`                     |
+| `custom_header`   | `header_name`, `header_value`                   |
+| `file_upload`     | `allowed_extensions` (array, e.g. `[".png"]`)   |
+
+`html_source`, `base64`, `hex`, and `sql_injection` have nothing to configure
+yet, so their variants differ only in wording, not in the technique needed.
+
+**Admin side** (**Admin** → sub-nav):
+- **Test-challenges** — create/edit/delete variants, assign one to a
+  student, and see or remove current assignments.
+- **Test scores** — results for assigned test-challenges.
+
+**Student side:** an **Assigned Tests** link in the nav shows the student's
+assigned variants, with a red **!** badge while any are unfinished. Test
+flags, hints, and attempts are tracked in the `test_*` tables only. Test
+points are shown on **Test scores** and are **never** added to a student's
+regular points total.
+
+Files involved: `assigned_tests.php`, `test_challenge.php`,
+`test_start_challenge.php`, `test_submit_flag.php`, `test_request_hint.php`,
+`test_sqli_attempt.php`, `test_upload_check.php` (site root), and
+`admin/test_*.php`.
+
 ## Security notes
 
-- Every SQL query goes through PDO prepared statements — no string-built SQL.
+- Every query against the real MySQL database goes through PDO prepared
+  statements — no string-built SQL. The only deliberately injectable query
+  is the SQL-injection challenge, which runs against a throwaway in-memory
+  SQLite database.
 - All admin/student form submissions are CSRF-protected via a per-session
   token.
 - Flags are compared with `hash_equals()` (constant-time) to avoid timing
@@ -158,4 +236,5 @@ alongside its normal flag mechanic.
   and `.htaccess` blocks direct HTTP access to it outright (see step 4
   above) — verify that block actually 403s before going live. `.htaccess`
   also blocks direct access to `.sql`/`.md` files and `config.sample.php`
-  so the schema and setup docs aren't publicly browsable either.
+  so the schema, answer keys, and setup docs aren't publicly browsable.
+- Don't leave the PHP test file from step 4 on the server.

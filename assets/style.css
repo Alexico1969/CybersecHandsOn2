@@ -53,6 +53,20 @@ a { color: inherit; }
 .nav a.brand { color: var(--text); font-weight: 600; font-size: 1rem; }
 .nav .points { font-size: .85rem; color: var(--muted); }
 .nav .points strong { color: var(--accent); }
+.nav-link-with-badge { display: inline-flex; align-items: center; gap: .3rem; }
+.nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 999px;
+  background: var(--danger);
+  color: #2e0505;
+  font-size: .68rem;
+  font-weight: 700;
+  line-height: 1;
+}
 
 .button {
   display: inline-flex;
@@ -159,6 +173,9 @@ a { color: inherit; }
   font-family: monospace;
 }
 
+.admin-subnav { display: flex; gap: 1.25rem; margin-bottom: 1.5rem; }
+.admin-subnav a { color: var(--muted); text-decoration: none; font-size: .9rem; }
+.admin-subnav a:hover { color: var(--text); }
 .admin-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
 .list { display: flex; flex-direction: column; gap: .6rem; margin-top: 1rem; margin-bottom: 2rem; }
 .list-row {

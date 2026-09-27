@@ -17,6 +17,12 @@ $pageTitle = 'Admin';
 include __DIR__ . '/../includes/header.php';
 ?>
 
+<div class="admin-subnav">
+  <a href="<?= h(SITE_URL) ?>/admin/index.php">Challenges</a>
+  <a href="<?= h(SITE_URL) ?>/admin/test_challenges.php">Test-challenges</a>
+  <a href="<?= h(SITE_URL) ?>/admin/test_scores.php">Test scores</a>
+</div>
+
 <div class="admin-section-header">
   <h1>Challenges</h1>
   <a class="button" href="<?= h(SITE_URL) ?>/admin/challenge_form.php">+ Add challenge</a>

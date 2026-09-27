@@ -4,11 +4,19 @@ require_once __DIR__ . '/challenge_types.php';
 $user = require_login();
 
 $slug = $_GET['slug'] ?? '';
-$stmt = db()->prepare('SELECT * FROM challenges WHERE slug = ?');
+$stmt = db()->prepare('SELECT * FROM test_challenges WHERE slug = ?');
 $stmt->execute([$slug]);
 $challenge = $stmt->fetch();
 
-if (!$challenge || (!$challenge['published'] && $user['role'] !== 'admin')) {
+$isAdmin = $user['role'] === 'admin';
+$isAssigned = false;
+if ($challenge) {
+    $assignStmt = db()->prepare('SELECT id FROM test_challenge_assignments WHERE user_id = ? AND test_challenge_id = ?');
+    $assignStmt->execute([$user['id'], $challenge['id']]);
+    $isAssigned = (bool) $assignStmt->fetch();
+}
+
+if (!$challenge || (!$challenge['published'] && !$isAdmin) || (!$isAssigned && !$isAdmin)) {
     http_response_code(404);
     $pageTitle = 'Not found';
     include __DIR__ . '/includes/header.php';
@@ -17,13 +25,13 @@ if (!$challenge || (!$challenge['published'] && $user['role'] !== 'admin')) {
     exit;
 }
 
-$progressStmt = db()->prepare('SELECT * FROM progress WHERE user_id = ? AND challenge_id = ?');
+$progressStmt = db()->prepare('SELECT * FROM test_progress WHERE user_id = ? AND test_challenge_id = ?');
 $progressStmt->execute([$user['id'], $challenge['id']]);
 $progress = $progressStmt->fetch();
 
 $userFlag = null;
 if ($progress) {
-    $flagStmt = db()->prepare('SELECT * FROM user_flags WHERE user_id = ? AND challenge_id = ?');
+    $flagStmt = db()->prepare('SELECT * FROM test_user_flags WHERE user_id = ? AND test_challenge_id = ?');
     $flagStmt->execute([$user['id'], $challenge['id']]);
     $userFlag = $flagStmt->fetch();
 
@@ -40,21 +48,22 @@ include __DIR__ . '/includes/header.php';
 ?>
 
 <div class="challenge-header">
-  <h1><?= h($challenge['title']) ?></h1>
+  <h1><?= h($challenge['title']) ?> <span class="muted">(test)</span></h1>
   <span class="badge badge-<?= h(strtolower($challenge['difficulty'])) ?>"><?= h($challenge['difficulty']) ?></span>
-  <span class="muted"><?= (int) $challenge['points'] ?> pts</span>
+  <span class="muted"><?= (int) $challenge['points'] ?> pts (test only)</span>
 </div>
 <p class="muted"><?= h($challenge['category']) ?></p>
+<p class="muted">This is a test-challenge assigned to you specifically. It's separate from your regular challenges and points.</p>
 <p class="description"><?= nl2br(h($challenge['description'])) ?></p>
 
 <?php if ($finished): ?>
   <div class="flash flash-success">
-    You already solved this and earned <?= (int) $progress['points_awarded'] ?> points.
+    You already solved this test-challenge and earned <?= (int) $progress['points_awarded'] ?> points (test only — not added to your challenge score).
   </div>
 <?php endif; ?>
 
 <?php if (!$progress): ?>
-  <form method="post" action="<?= h(SITE_URL) ?>/start_challenge.php">
+  <form method="post" action="<?= h(SITE_URL) ?>/test_start_challenge.php">
     <?= csrf_field() ?>
     <input type="hidden" name="slug" value="<?= h($slug) ?>">
     <button type="submit" class="button">Start challenge</button>
@@ -66,14 +75,14 @@ include __DIR__ . '/includes/header.php';
     <p><a class="button button-secondary" href="<?= h($challenge['terminal_url']) ?>" target="_blank" rel="noopener">Open terminal ↗</a></p>
   <?php endif; ?>
 
-  <?= render_challenge_type($challenge['challenge_type'], $userFlag['flag_value'], $challenge) ?>
+  <?= render_challenge_type($challenge['challenge_type'], $userFlag['flag_value'], $challenge, 'test') ?>
 
   <?php if ($challenge['hint']): ?>
     <div class="hint-box">
       <?php if ($progress['hint_used']): ?>
         <p><strong>Hint:</strong> <?= h($challenge['hint']) ?></p>
       <?php elseif (!$finished): ?>
-        <form method="post" action="<?= h(SITE_URL) ?>/request_hint.php">
+        <form method="post" action="<?= h(SITE_URL) ?>/test_request_hint.php">
           <?= csrf_field() ?>
           <input type="hidden" name="slug" value="<?= h($slug) ?>">
           <button type="submit" class="button button-link">
@@ -85,7 +94,7 @@ include __DIR__ . '/includes/header.php';
   <?php endif; ?>
 
   <?php if (!$finished): ?>
-    <form method="post" action="<?= h(SITE_URL) ?>/submit_flag.php" class="flag-form">
+    <form method="post" action="<?= h(SITE_URL) ?>/test_submit_flag.php" class="flag-form">
       <?= csrf_field() ?>
       <input type="hidden" name="slug" value="<?= h($slug) ?>">
       <input type="text" name="flag" placeholder="flag{...}" autocomplete="off" required>
